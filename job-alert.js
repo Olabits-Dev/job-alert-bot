@@ -12,7 +12,7 @@ import { extractEmailsFromText } from "./email_finder.js";
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // report email
-const REPORT_TO = "atilolasamuel15@gmail.com";
+const REPORT_TO = process.env.REPORT_TO || "atilolasamuel15@gmail.com";
 
 const CACHE_DIR = ".cache";
 const SEEN_FILE = path.join(CACHE_DIR, "seen.json");
