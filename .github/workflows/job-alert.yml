@@ -2,19 +2,17 @@ name: Daily Job Alert
 
 on:
   schedule:
-    # GitHub cron is UTC.
-    # If you want 9:00am Lagos (UTC+1), use 08:00 UTC:
+    # Lagos is UTC+1. This runs 9:00am Lagos = 08:00 UTC.
     - cron: "0 8 * * *"
   workflow_dispatch: {}
 
 jobs:
   send-email:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Restore cache (seen jobs)
+      - name: Restore seen-cache
         uses: actions/cache@v4
         with:
           path: .cache
@@ -25,12 +23,12 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Run script
+      - name: Run alert
         run: npm start
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
 
-      - name: Save cache (seen jobs)
+      - name: Save seen-cache
         uses: actions/cache@v4
         with:
           path: .cache
