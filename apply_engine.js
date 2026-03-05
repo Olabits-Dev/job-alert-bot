@@ -5,17 +5,22 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-export const FROM_NAME = "Samuel Olawale Atilola";
-export const REPLY_TO = "atilolasamuel15@gmail.com"; // your chosen sender email (A)
+// ✅ Public-repo safe: configurable via GitHub Secrets / env vars
+export const FROM_NAME = process.env.FROM_NAME || "Samuel Olawale Atilola";
+export const REPLY_TO = process.env.REPLY_TO || "atilolasamuel15@gmail.com";
 
-const CV_PATH = path.join("assets", "cv.pdf");
+// Default CV path (keep private via .gitignore)
+const CV_PATH = process.env.CV_PATH || path.join("assets", "cv.pdf");
 
 export function loadCvAttachment() {
   if (!fs.existsSync(CV_PATH)) {
-    throw new Error(`CV not found at ${CV_PATH}. Create assets/cv.pdf in the repo.`);
+    throw new Error(
+      `CV not found at "${CV_PATH}". Place your CV at assets/cv.pdf (recommended) or set CV_PATH in GitHub Secrets.`
+    );
   }
 
   const content = fs.readFileSync(CV_PATH).toString("base64");
+
   return {
     filename: "Samuel_Olawale_Atilola_CV.pdf",
     content
