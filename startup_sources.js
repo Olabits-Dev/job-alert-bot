@@ -22,3 +22,6 @@ export const APPLY_EMAIL_BY_COMPANY = {
   // Example:
   // "Some Startup": "careers@somestartup.com"
 };
+export const APPLY_EMAIL_BY_COMPANY = {
+  "Stripe": "jobs@stripe.com"
+};
