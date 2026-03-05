@@ -1,31 +1,18 @@
-// sources.js
 export const SOURCES = [
-  // JSON
-  {
-    name: "RemoteOK (JSON)",
-    type: "json",
-    url: "https://remoteok.com/api"
-  },
-
-  // RSS
-  {
-    name: "WeWorkRemotely (RSS)",
-    type: "rss",
-    url: "https://weworkremotely.com/categories/remote-programming-jobs.rss"
-  }
+  { name: "RemoteOK", type: "json", url: "https://remoteok.com/api" },
+  { name: "WeWorkRemotely", type: "rss", url: "https://weworkremotely.com/categories/remote-programming-jobs.rss" }
 ];
 
-// Your keywords (tune anytime)
 export const KEYWORDS = {
   strong: [
     "react", "frontend", "front-end", "javascript", "typescript",
-    "node", "express", "postgres", "postgresql"
+    "node", "node.js", "express", "postgres", "postgresql"
   ],
   web3Boost: [
-    "web3", "crypto", "blockchain", "defi", "solana", "ethereum"
+    "web3", "crypto", "blockchain", "defi", "ethereum", "solana", "wallet", "smart contract"
   ],
   avoid: [
-    "senior manager", "director", "principal", "staff", "vp",
-    "android", "ios", "qa", "sales", "marketing"
+    "director", "vp", "head of", "principal", "staff engineer",
+    "android", "ios", "qa", "marketing", "sales", "customer support"
   ]
 };
