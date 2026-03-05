@@ -152,6 +152,33 @@ async function fetchGreenhouseBoard(slug, name) {
     .filter((j) => j.url && j.title);
 }
 
+async function fetchAshby(slug, name) {
+
+  const url = `https://jobs.ashbyhq.com/${slug}`;
+
+  const res = await fetch(url, {
+    headers: { "User-Agent": "job-alert-bot" }
+  });
+
+  if (!res.ok) {
+    throw new Error(`Ashby fetch failed (${name}): ${res.status}`);
+  }
+
+  const html = await res.text();
+
+  const matches = [...html.matchAll(/href="(\/job\/[^"]+)"/g)];
+
+  return matches.map(m => ({
+    source: `Ashby: ${name}`,
+    title: "Startup Role",
+    company: name,
+    url: `https://jobs.ashbyhq.com${m[1]}`,
+    date: "",
+    tags: [],
+    description: ""
+  }));
+}
+
 async function fetchLever(slug, name) {
   const url = `https://api.lever.co/v0/postings/${encodeURIComponent(slug)}?mode=json`;
   const res = await fetch(url, { headers: { "User-Agent": "job-alert-bot" } });
