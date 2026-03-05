@@ -6,47 +6,21 @@ import { SOURCES, KEYWORDS } from "./sources.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// ✅ Phase 1: send to one email (same one you used for Resend signup)
-const TO_EMAILS = ["atilolasamuel15@gmail.com"];
-// After domain verification you can do:
-// const TO_EMAILS = ["atilolasamuel15@gmail.com", "atilola33@yahoo.com"];
+// Keep Phase-1 to avoid domain verification issues.
+// Later you can set your own domain and send to both emails.
+const TO_EMAILS = ["atilolasamuel15@gmail.com"]; // add yahoo later if you verify a domain
+const FROM = "Job Alerts <onboarding@resend.dev>";
 
 const CACHE_DIR = ".cache";
 const SEEN_FILE = path.join(CACHE_DIR, "seen.json");
 
-// GitHub Actions runner uses Node 18+ so fetch is available
 const xmlParser = new XMLParser({ ignoreAttributes: false });
 
-function norm(s = "") {
-  return String(s).toLowerCase().trim();
-}
+const norm = (s = "") => String(s).toLowerCase().trim();
 
-function containsAny(text, words) {
-  const t = norm(text);
-  return words.some(w => t.includes(norm(w)));
-}
-
-function scoreJob(job) {
-  const hay = `${job.title} ${job.company} ${job.description ?? ""} ${job.tags?.join(" ") ?? ""}`;
-  const t = norm(hay);
-
-  if (containsAny(t, KEYWORDS.avoid)) return -999;
-
-  let score = 0;
-
-  // Strong matches
-  KEYWORDS.strong.forEach(k => { if (t.includes(k)) score += 3; });
-
-  // Web3 boost
-  KEYWORDS.web3Boost.forEach(k => { if (t.includes(k)) score += 1; });
-
-  // Remote boost
-  if (t.includes("remote") || t.includes("worldwide")) score += 2;
-
-  // Contract boost
-  if (t.includes("contract") || t.includes("freelance")) score += 1;
-
-  return score;
+function safeArr(x) {
+  if (!x) return [];
+  return Array.isArray(x) ? x : [x];
 }
 
 function loadSeen() {
@@ -62,7 +36,77 @@ function loadSeen() {
 
 function saveSeen(seenSet) {
   fs.mkdirSync(CACHE_DIR, { recursive: true });
-  fs.writeFileSync(SEEN_FILE, JSON.stringify([...seenSet].slice(-2000), null, 2));
+  const arr = [...seenSet].slice(-2500);
+  fs.writeFileSync(SEEN_FILE, JSON.stringify(arr, null, 2));
+}
+
+function containsAny(text, words) {
+  const t = norm(text);
+  return words.some((w) => t.includes(norm(w)));
+}
+
+function explainMatch(job) {
+  const hay = norm(`${job.title} ${job.company} ${job.description || ""} ${(job.tags || []).join(" ")}`);
+  const hitsStrong = KEYWORDS.strong.filter(k => hay.includes(norm(k)));
+  const hitsWeb3 = KEYWORDS.web3Boost.filter(k => hay.includes(norm(k)));
+
+  const reasons = [];
+  if (hitsStrong.length) reasons.push(`Stack match: ${hitsStrong.slice(0, 6).join(", ")}`);
+  if (hitsWeb3.length) reasons.push(`Web3/Crypto signals: ${hitsWeb3.slice(0, 6).join(", ")}`);
+  if (hay.includes("remote") || hay.includes("worldwide")) reasons.push("Remote-friendly");
+  if (hay.includes("contract") || hay.includes("freelance")) reasons.push("Contract mention");
+
+  return reasons.length ? reasons.join(" • ") : "General match";
+}
+
+function scoreJob(job) {
+  const hay = norm(`${job.title} ${job.company} ${job.description || ""} ${(job.tags || []).join(" ")}`);
+
+  if (containsAny(hay, KEYWORDS.avoid)) return -999;
+
+  let score = 0;
+
+  // Strong skills match
+  for (const k of KEYWORDS.strong) {
+    if (hay.includes(norm(k))) score += 3;
+  }
+
+  // Web3/Crypto boost
+  for (const k of KEYWORDS.web3Boost) {
+    if (hay.includes(norm(k))) score += 1;
+  }
+
+  // Remote boost
+  if (hay.includes("remote") || hay.includes("worldwide")) score += 3;
+
+  // Contract boost
+  if (hay.includes("contract") || hay.includes("freelance")) score += 2;
+
+  // Prefer “engineer/developer”
+  if (hay.includes("engineer") || hay.includes("developer")) score += 1;
+
+  return score;
+}
+
+function buildPitch(job) {
+  const companyLine = job.company ? `Hi ${job.company} team,` : "Hi,";
+  return `${companyLine}
+
+I’m Samuel Atilola — a Frontend & Software Engineer (React, Node.js/Express, PostgreSQL), available immediately for remote contract work.
+
+I’m interested in the "${job.title}" role. Highlights of what I’ve built:
+• Responsive React UIs and production-ready web apps
+• API backends with Node.js/Express + PostgreSQL
+• Automation systems (fintech/crypto-style workflows)
+
+Portfolio: https://olabits-landing-page.onrender.com
+GitHub: https://github.com/Olabits-Dev
+
+If you’re open to global remote candidates, I’d love to be considered.
+
+Best regards,
+Samuel Atilola
++234 803 520 8600`;
 }
 
 async function fetchRemoteOk() {
@@ -72,18 +116,19 @@ async function fetchRemoteOk() {
   if (!res.ok) throw new Error(`RemoteOK fetch failed: ${res.status}`);
   const data = await res.json();
 
-  // RemoteOK API returns the first item as metadata; filter real jobs
+  // First element may be metadata; keep only real jobs
   const jobs = data
-    .filter(x => x && x.id && x.position)
-    .map(x => ({
+    .filter((x) => x && x.id && x.position)
+    .map((x) => ({
       source: "RemoteOK",
       title: x.position,
-      company: x.company,
+      company: x.company || "",
       url: x.url || x.apply_url || `https://remoteok.com/remote-jobs/${x.id}`,
-      date: x.date || x.epoch ? new Date((x.epoch || 0) * 1000).toISOString() : "",
-      tags: x.tags || [],
+      date: x.date || "",
+      tags: safeArr(x.tags),
       description: x.description || ""
-    }));
+    }))
+    .filter((j) => j.url && j.title);
 
   return jobs;
 }
@@ -94,69 +139,64 @@ async function fetchRss(url, sourceName) {
   const xml = await res.text();
 
   const parsed = xmlParser.parse(xml);
-  const items =
-    parsed?.rss?.channel?.item ||
-    parsed?.feed?.entry ||
-    [];
+  const items = parsed?.rss?.channel?.item || [];
+  const arr = safeArr(items);
 
-  const arr = Array.isArray(items) ? items : [items];
+  return arr
+    .map((it) => {
+      const title = it.title?.["#text"] ?? it.title ?? "Untitled";
+      const link =
+        it.link?.["@_href"] ||
+        it.link ||
+        it.guid ||
+        "";
 
-  return arr.map(it => {
-    const title = it.title?.["#text"] ?? it.title ?? "Untitled";
-    const link =
-      it.link?.["@_href"] ||
-      it.link ||
-      it.guid ||
-      "";
+      const pubDate = it.pubDate || "";
 
-    const pubDate = it.pubDate || it.published || it.updated || "";
-
-    return {
-      source: sourceName,
-      title,
-      company: "", // some RSS feeds don’t include company cleanly
-      url: String(link),
-      date: String(pubDate),
-      tags: [],
-      description: (it.description?.["#text"] ?? it.description ?? it.summary ?? "").toString()
-    };
-  }).filter(j => j.url);
+      return {
+        source: sourceName,
+        title: String(title),
+        company: "",
+        url: String(link).trim(),
+        date: String(pubDate),
+        tags: [],
+        description: (it.description?.["#text"] ?? it.description ?? "").toString()
+      };
+    })
+    .filter((j) => j.url && j.title);
 }
 
-function buildPitch(job) {
-  const companyLine = job.company ? `Hi ${job.company} team,` : "Hi,";
-  return `${companyLine}
-
-I’m Samuel Atilola — a Frontend & Software Engineer (React, Node.js/Express, PostgreSQL), available immediately for remote contract work.
-
-I’m interested in the "${job.title}" role. I’ve built:
-• SaaS dashboards and responsive UI using React/HTML/CSS/JavaScript
-• API-driven backends with Node.js/Express and PostgreSQL
-• Automation systems (fintech/crypto-style workflows)
-
-Portfolio: https://olabits-landing-page.onrender.com
-GitHub: https://github.com/Olabits-Dev
-
-If this role is open to global remote candidates, I’d love to be considered.
-
-Best regards,
-Samuel Atilola
-+234 803 520 8600`;
+function escapeHtml(str = "") {
+  return String(str)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 function emailHtml(dateStr, jobs) {
-  const list = jobs.map((j, i) => `
+  const items = jobs.map((j, i) => `
     <div style="padding:14px;border:1px solid #eee;border-radius:12px;margin:12px 0;">
-      <div style="font-weight:800;">${i + 1}. ${escapeHtml(j.title)}</div>
+      <div style="font-weight:900;font-size:15px;">
+        ${i + 1}. ${escapeHtml(j.title)}
+        <span style="font-weight:700;color:#666;font-size:12px;">(Score: ${j.score})</span>
+      </div>
       <div style="color:#555;margin-top:6px;">
         <b>Source:</b> ${escapeHtml(j.source)}
         ${j.company ? ` • <b>Company:</b> ${escapeHtml(j.company)}` : ""}
       </div>
+
+      <div style="color:#666;margin-top:6px;">
+        <b>Why it matched:</b> ${escapeHtml(j.matchWhy)}
+      </div>
+
       <div style="margin-top:8px;">
         <a href="${j.url}" target="_blank" rel="noreferrer">Apply / View listing</a>
       </div>
+
       <div style="background:#faf7ff;border:1px solid #eee;border-radius:10px;padding:10px;margin-top:10px;">
-        <div style="font-weight:700;margin-bottom:6px;">Paste-ready pitch:</div>
+        <div style="font-weight:800;margin-bottom:6px;">Paste-ready pitch:</div>
         <div style="white-space:pre-wrap;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.6;">
 ${escapeHtml(j.pitch)}
         </div>
@@ -168,10 +208,10 @@ ${escapeHtml(j.pitch)}
   <div style="font-family:Arial,sans-serif;max-width:820px;margin:auto;padding:18px;">
     <h2 style="margin:0 0 10px;">Daily Job Leads — ${dateStr}</h2>
     <p style="color:#555;margin:0 0 14px;">
-      Filters: React / Frontend / Software Engineer + Node/Express + PostgreSQL + Web3/Crypto • Remote
+      Focus: React/Frontend + Node/Express + PostgreSQL + Web3/Crypto • Remote/Contract
     </p>
 
-    ${jobs.length ? list : `<p>No strong matches today — I’ll keep scanning.</p>`}
+    ${jobs.length ? items : `<p>No strong matches today — I’ll keep scanning.</p>`}
 
     <hr style="border:none;border-top:1px solid #eee;margin:18px 0;" />
     <p style="color:#666;font-size:13px;margin:0;">
@@ -180,15 +220,6 @@ ${escapeHtml(j.pitch)}
     </p>
   </div>
   `;
-}
-
-function escapeHtml(str = "") {
-  return String(str)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
 }
 
 async function collectJobs() {
@@ -206,10 +237,7 @@ async function collectJobs() {
     }
   }
 
-  // Clean URLs
-  return all
-    .filter(j => j.url && j.title)
-    .map(j => ({ ...j, url: j.url.trim() }));
+  return all;
 }
 
 async function main() {
@@ -221,25 +249,28 @@ async function main() {
 
   const jobs = await collectJobs();
 
-  // Filter + score
   const ranked = jobs
-    .map(j => ({ ...j, score: scoreJob(j) }))
-    .filter(j => j.score > 3) // threshold (tune it)
-    .filter(j => !seen.has(j.url))
+    .map((j) => ({ ...j, score: scoreJob(j) }))
+    .filter((j) => j.score >= 10)           // ✅ threshold: tune if needed
+    .filter((j) => !seen.has(j.url))        // ✅ dedupe daily
     .sort((a, b) => b.score - a.score)
-    .slice(0, 10)
-    .map(j => ({ ...j, pitch: buildPitch(j) }));
+    .slice(0, 10)                           // ✅ top 10
+    .map((j) => ({
+      ...j,
+      matchWhy: explainMatch(j),
+      pitch: buildPitch(j)
+    }));
 
-  // Mark as seen
-  ranked.forEach(j => seen.add(j.url));
+  // Update seen cache
+  ranked.forEach((j) => seen.add(j.url));
   saveSeen(seen);
 
   const html = emailHtml(dateStr, ranked);
 
   const { error } = await resend.emails.send({
-    from: "Job Alerts <onboarding@resend.dev>",
+    from: FROM,
     to: TO_EMAILS,
-    subject: `Daily Job Leads — ${dateStr} (Remote + Web3/Crypto)`,
+    subject: `Daily Job Leads — ${dateStr} (Balanced: Software + Web3)`,
     html
   });
 
