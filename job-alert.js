@@ -212,15 +212,27 @@ async function collectJobs() {
   }
 
   // Startup boards
-  for (const s of STARTUP_SOURCES) {
-    try {
-      if (s.platform === "greenhouse") all.push(...await fetchGreenhouseBoard(s.slug, s.name));
-      if (s.platform === "lever") all.push(...await fetchLever(s.slug, s.name));
-    } catch (e) {
-      console.error(`Startup source failed: ${s.name}`, e?.message || e);
+for (const s of STARTUP_SOURCES) {
+
+  try {
+
+    if (s.platform === "greenhouse") {
+      all.push(...await fetchGreenhouseBoard(s.slug, s.name));
     }
+
+    if (s.platform === "lever") {
+      all.push(...await fetchLever(s.slug, s.name));
+    }
+
+    if (s.platform === "ashby") {
+      all.push(...await fetchAshby(s.slug, s.name));
+    }
+
+  } catch (e) {
+    console.error(`Startup source failed: ${s.name}`, e.message);
   }
 
+}
   return all;
 }
 
