@@ -1,6 +1,10 @@
 # AI Job Hunter Bot (GitHub Actions + Resend)
 
+- ✅ Multi-profile support (developer + customer support job seekers)
+
 A serverless job discovery + application assistant that runs daily using GitHub Actions.
+
+7. Switches candidate profile using `PROFILE=dev` or `PROFILE=precious_support`
 
 It scans:
 - Remote job boards (RemoteOK, RSS feeds)
