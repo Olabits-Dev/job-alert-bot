@@ -4,11 +4,18 @@ import path from "path";
 import { XMLParser } from "fast-xml-parser";
 import { Resend } from "resend";
 
-import { SOURCES, KEYWORDS } from "./sources.js";
+import { SOURCES } from "./sources.js";
+import { PROFILES } from "./profiles.js";
 import { STARTUP_SOURCES, APPLY_EMAIL_BY_COMPANY } from "./startup_sources.js";
 import { sendApplicationEmail, sendDailyReport } from "./apply_engine.js";
 import { extractEmailsFromText } from "./email_finder.js";
 
+const PROFILE_KEY = (process.env.PROFILE || "dev").toLowerCase();
+const PROFILE = PROFILES[PROFILE_KEY] || PROFILES.dev;
+const KEYWORDS = PROFILE.keywords;
+const CANDIDATE = PROFILE.candidate;
+const PREFERENCES = PROFILE.preferences || {};
+  
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // report email
@@ -110,13 +117,34 @@ function explainMatch(job) {
 
   return reasons.length ? reasons.join(" • ") : "General match";
 }
-
 function buildPitch(job) {
   const companyLine = job.company ? `Hi ${job.company} team,` : "Hi,";
 
+  if (PROFILE_KEY === "precious_support") {
+    return `${companyLine}
+
+My name is ${CANDIDATE.name} and I am applying for the "${job.title}" role.
+
+I have 3 years of experience in customer service and support environments, including phone, email, chat, and social media support. I currently work as a Customer Service Call Center Representative at Irecharge Tech Innovation Abuja.
+
+My experience includes:
+• Handling customer enquiries and complaints professionally
+• Resolving and escalating customer issues appropriately
+• Updating CRM and call logs accurately
+• Supporting customers across phone, email, chat, and social media
+• Using Intercom, Freshdesk, CRM tools, and LiveChat
+
+I am open to remote UK roles and remote or hybrid Nigeria roles, and I am available for shift work.
+
+Best regards,
+${CANDIDATE.name}
+${CANDIDATE.phone}
+${CANDIDATE.email}`;
+  }
+
   return `${companyLine}
 
-I’m Samuel Olawale Atilola — a Frontend & Software Engineer specializing in React, Node.js/Express and PostgreSQL.
+I’m ${CANDIDATE.name} — a Frontend & Software Engineer specializing in React, Node.js/Express and PostgreSQL.
 
 I’m applying for the "${job.title}" role.
 
@@ -126,17 +154,17 @@ Highlights of my work:
 • automation and fintech-style systems
 
 Portfolio
-https://olabits-landing-page.onrender.com
+${CANDIDATE.portfolio}
 
 GitHub
-https://github.com/Olabits-Dev
+${CANDIDATE.github}
 
 If the role supports global remote developers I would love to contribute.
 
 Best regards,
-Samuel Olawale Atilola
-+2348035208600
-Email: atilolasamuel15@gmail.com`;
+${CANDIDATE.name}
+${CANDIDATE.phone}
+Email: ${CANDIDATE.email}`;
 }
 
 /* ---------------- JOB SOURCES ---------------- */
