@@ -1,28 +1,37 @@
 // profiles.js
 export const PROFILES = {
-  dev: {
-    label: "Software Engineer",
-    keywords: {
-      strong: [
-        "react", "frontend", "javascript", "typescript",
-        "node", "node.js", "express", "postgres", "postgresql"
-      ],
-      boost: [
-        "web3", "crypto", "blockchain", "remote", "worldwide",
-        "contract", "freelance"
-      ],
-      avoid: [
-        "customer support", "sales", "marketing", "android", "ios"
-      ]
-    },
-    candidate: {
-      name: "Samuel Olawale Atilola",
-      email: "atilolasamuel15@gmail.com",
-      phone: "+2348035208600",
-      portfolio: "https://olabits-landing-page.onrender.com",
-      github: "https://github.com/Olabits-Dev"
-    }
+dev: {
+  label: "Software Engineer",
+  keywords: {
+    strong: [
+      "react", "frontend", "front-end", "javascript", "typescript",
+      "node", "node.js", "express", "postgres", "postgresql",
+      "full stack", "full-stack", "software engineer", "software developer"
+    ],
+    boost: [
+      "web3", "crypto", "blockchain",
+      "remote", "worldwide", "contract", "freelance",
+      "nigeria", "lagos", "abuja", "hybrid", "onsite"
+    ],
+    avoid: [
+      "customer support", "sales", "marketing",
+      "android", "ios", "qa", "intern"
+    ]
   },
+  candidate: {
+    name: "Samuel Olawale Atilola",
+    email: "atilolasamuel15@gmail.com",
+    phone: "+2348035208600",
+    portfolio: "https://olabits-landing-page.onrender.com",
+    github: "https://github.com/Olabits-Dev",
+    location: "Abuja, Nigeria"
+  },
+  preferences: {
+    regions: ["UK", "Nigeria", "Remote", "Global"],
+    workModes: ["remote", "hybrid", "onsite"],
+    nigeriaCities: ["Lagos", "Abuja", "Remote"]
+  }
+},
 
   precious_support: {
     label: "Customer Service / Customer Support",
