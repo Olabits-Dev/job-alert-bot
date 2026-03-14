@@ -89,9 +89,15 @@ function scoreJob(job) {
     if (hay.includes(norm(k))) score += 1;
   }
 
-  if (hay.includes("remote") || hay.includes("worldwide")) score += 3;
-  if (hay.includes("contract") || hay.includes("freelance")) score += 2;
-  if (hay.includes("engineer") || hay.includes("developer")) score += 1;
+if (hay.includes("remote") || hay.includes("worldwide")) score += 3;
+if (hay.includes("contract") || hay.includes("freelance")) score += 2;
+if (hay.includes("engineer") || hay.includes("developer")) score += 1;
+
+// Nigeria job boost for Samuel profile
+if (PROFILE_KEY === "dev") {
+  if (hay.includes("nigeria") || hay.includes("lagos") || hay.includes("abuja")) score += 2;
+  if (hay.includes("hybrid")) score += 1;
+}
 
   return score;
 }
@@ -141,8 +147,7 @@ ${CANDIDATE.name}
 ${CANDIDATE.phone}
 ${CANDIDATE.email}`;
   }
-
-  return `${companyLine}
+return `${companyLine}
 
 I’m ${CANDIDATE.name} — a Frontend & Software Engineer specializing in React, Node.js/Express and PostgreSQL.
 
@@ -153,18 +158,21 @@ Highlights of my work:
 • Node.js/Express APIs with PostgreSQL
 • automation and fintech-style systems
 
+I’m open to UK, global remote, and Nigeria-based opportunities, including remote and hybrid roles.
+
 Portfolio
 ${CANDIDATE.portfolio}
 
 GitHub
 ${CANDIDATE.github}
 
-If the role supports global remote developers I would love to contribute.
+I’d love the opportunity to contribute to your team.
 
 Best regards,
 ${CANDIDATE.name}
 ${CANDIDATE.phone}
 Email: ${CANDIDATE.email}`;
+
 }
 
 /* ---------------- JOB SOURCES ---------------- */
