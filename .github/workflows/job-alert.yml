@@ -7,36 +7,38 @@ on:
   workflow_dispatch: {}
 
 jobs:
-  send-email:
+  samuel-dev-jobs:
     runs-on: ubuntu-latest
     steps:
-      # Pinned to actions/checkout v4.1.1
       - name: Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
 
-      # Pinned to actions/cache v4.2.0
-      - name: Restore seen-cache
+      - name: Restore seen-cache (Samuel)
         uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57
         with:
           path: .cache
-          key: seen-cache-v1
+          key: seen-cache-v1-dev
           restore-keys: |
-            seen-cache-
+            seen-cache-v1-
 
       - name: Install dependencies
         run: npm install
 
-      - name: Run alert
+      - name: Run alert (Samuel dev)
         run: npm start
         env:
+          PROFILE: dev
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          REPORT_TO: ${{ secrets.REPORT_TO }}
+          REPLY_TO: ${{ secrets.REPLY_TO }}
+          FROM_NAME: ${{ secrets.FROM_NAME }}
+          CV_PATH: ${{ secrets.CV_PATH }}
 
-      # Pinned to actions/cache v4.2.0
-      - name: Save seen-cache
+      - name: Save seen-cache (Samuel)
         uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57
         with:
           path: .cache
-          key: seen-cache-v1
+          key: seen-cache-v1-dev
 
   precious-support-jobs:
     runs-on: ubuntu-latest
@@ -44,7 +46,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
 
-      - name: Restore seen-cache
+      - name: Restore seen-cache (Precious)
         uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57
         with:
           path: .cache
@@ -65,7 +67,7 @@ jobs:
           CLIENT_FROM_NAME: ${{ secrets.CLIENT_FROM_NAME }}
           CLIENT_CV_PATH: ${{ secrets.CLIENT_CV_PATH }}
 
-      - name: Save seen-cache
+      - name: Save seen-cache (Precious)
         uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57
         with:
           path: .cache
