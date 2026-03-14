@@ -37,3 +37,36 @@ jobs:
         with:
           path: .cache
           key: seen-cache-v1
+
+  precious-support-jobs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+
+      - name: Restore seen-cache
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57
+        with:
+          path: .cache
+          key: seen-cache-v1-precious
+          restore-keys: |
+            seen-cache-v1-
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run alert (Precious support)
+        run: npm start
+        env:
+          PROFILE: precious_support
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          REPORT_TO: ${{ secrets.CLIENT_REPORT_TO }}
+          CLIENT_REPLY_TO: ${{ secrets.CLIENT_REPLY_TO }}
+          CLIENT_FROM_NAME: ${{ secrets.CLIENT_FROM_NAME }}
+          CLIENT_CV_PATH: ${{ secrets.CLIENT_CV_PATH }}
+
+      - name: Save seen-cache
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57
+        with:
+          path: .cache
+          key: seen-cache-v1-precious
