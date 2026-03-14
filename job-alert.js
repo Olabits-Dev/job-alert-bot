@@ -2,7 +2,6 @@
 import fs from "fs";
 import path from "path";
 import { XMLParser } from "fast-xml-parser";
-import { Resend } from "resend";
 
 import { SOURCES } from "./sources.js";
 import { PROFILES } from "./profiles.js";
@@ -15,15 +14,12 @@ const PROFILE = PROFILES[PROFILE_KEY] || PROFILES.dev;
 const KEYWORDS = PROFILE.keywords;
 const CANDIDATE = PROFILE.candidate;
 const PREFERENCES = PROFILE.preferences || {};
-  
-const resend = new Resend(process.env.RESEND_API_KEY);
 
-// report email
-const REPORT_TO = process.env.REPORT_TO || "atilolasamuel15@gmail.com";
+const REPORT_TO = process.env.REPORT_TO || CANDIDATE.email || "atilolasamuel15@gmail.com";
 
 const CACHE_DIR = ".cache";
-const SEEN_FILE = path.join(CACHE_DIR, "seen.json");
-const APPLY_LOG_FILE = path.join(CACHE_DIR, "applications.json");
+const SEEN_FILE = path.join(CACHE_DIR, `seen-${PROFILE_KEY}.json`);
+const APPLY_LOG_FILE = path.join(CACHE_DIR, `applications-${PROFILE_KEY}.json`);
 
 const xmlParser = new XMLParser({ ignoreAttributes: false });
 
@@ -81,23 +77,31 @@ function scoreJob(job) {
 
   let score = 0;
 
-  for (const k of KEYWORDS.strong) {
+  for (const k of KEYWORDS.strong || []) {
     if (hay.includes(norm(k))) score += 3;
   }
 
-  for (const k of KEYWORDS.web3Boost) {
+  for (const k of KEYWORDS.boost || []) {
     if (hay.includes(norm(k))) score += 1;
   }
 
-if (hay.includes("remote") || hay.includes("worldwide")) score += 3;
-if (hay.includes("contract") || hay.includes("freelance")) score += 2;
-if (hay.includes("engineer") || hay.includes("developer")) score += 1;
+  if (hay.includes("remote") || hay.includes("worldwide")) score += 3;
+  if (hay.includes("contract") || hay.includes("freelance")) score += 2;
+  if (hay.includes("engineer") || hay.includes("developer")) score += 1;
 
-// Nigeria job boost for Samuel profile
-if (PROFILE_KEY === "dev") {
-  if (hay.includes("nigeria") || hay.includes("lagos") || hay.includes("abuja")) score += 2;
-  if (hay.includes("hybrid")) score += 1;
-}
+  // Samuel: boost Nigeria roles too
+  if (PROFILE_KEY === "dev") {
+    if (hay.includes("nigeria") || hay.includes("lagos") || hay.includes("abuja")) score += 2;
+    if (hay.includes("hybrid")) score += 1;
+  }
+
+  // Precious: boost support salaries + support wording
+  if (PROFILE_KEY === "precious_support") {
+    if (hay.includes("£") || hay.includes("gbp")) score += 2;
+    if (hay.includes("₦") || hay.includes("ngn")) score += 2;
+    if (hay.includes("customer") || hay.includes("support")) score += 2;
+    if (hay.includes("chat") || hay.includes("call center") || hay.includes("helpdesk")) score += 1;
+  }
 
   return score;
 }
@@ -105,24 +109,28 @@ if (PROFILE_KEY === "dev") {
 function explainMatch(job) {
   const hay = norm(`${job.title} ${job.company} ${job.description || ""}`);
 
-  const hitsStrong = KEYWORDS.strong.filter((k) => hay.includes(norm(k)));
-  const hitsWeb3 = KEYWORDS.web3Boost.filter((k) => hay.includes(norm(k)));
+  const hitsStrong = (KEYWORDS.strong || []).filter((k) => hay.includes(norm(k)));
+  const hitsBoost = (KEYWORDS.boost || []).filter((k) => hay.includes(norm(k)));
 
   const reasons = [];
 
   if (hitsStrong.length) {
-    reasons.push(`Stack: ${hitsStrong.slice(0, 6).join(", ")}`);
+    reasons.push(`Match: ${hitsStrong.slice(0, 6).join(", ")}`);
   }
 
-  if (hitsWeb3.length) {
-    reasons.push(`Web3: ${hitsWeb3.slice(0, 6).join(", ")}`);
+  if (hitsBoost.length) {
+    reasons.push(`Boost: ${hitsBoost.slice(0, 6).join(", ")}`);
   }
 
   if (hay.includes("remote")) reasons.push("Remote");
+  if (hay.includes("hybrid")) reasons.push("Hybrid");
   if (hay.includes("contract") || hay.includes("freelance")) reasons.push("Contract");
 
   return reasons.length ? reasons.join(" • ") : "General match";
 }
+
+/* ---------------- PITCH ---------------- */
+
 function buildPitch(job) {
   const companyLine = job.company ? `Hi ${job.company} team,` : "Hi,";
 
@@ -147,7 +155,8 @@ ${CANDIDATE.name}
 ${CANDIDATE.phone}
 ${CANDIDATE.email}`;
   }
-return `${companyLine}
+
+  return `${companyLine}
 
 I’m ${CANDIDATE.name} — a Frontend & Software Engineer specializing in React, Node.js/Express and PostgreSQL.
 
@@ -172,7 +181,6 @@ Best regards,
 ${CANDIDATE.name}
 ${CANDIDATE.phone}
 Email: ${CANDIDATE.email}`;
-
 }
 
 /* ---------------- JOB SOURCES ---------------- */
@@ -186,7 +194,7 @@ async function fetchRemoteOk() {
     .map((x) => ({
       source: "RemoteOK",
       title: x.position,
-      company: x.company,
+      company: x.company || "",
       url: x.url,
       tags: safeArr(x.tags),
       description: x.description || "",
@@ -203,7 +211,7 @@ async function fetchRss(url, sourceName) {
 
   return items.map((it) => ({
     source: sourceName,
-    title: it.title,
+    title: it.title || "",
     company: "",
     url: it.link,
     description: it.description || "",
@@ -265,10 +273,13 @@ async function collectJobs() {
 
   for (const src of SOURCES) {
     try {
-      if (src.type === "json") all.push(...(await fetchRemoteOk()));
-      else if (src.type === "rss") all.push(...(await fetchRss(src.url, src.name)));
+      if (src.type === "json") {
+        all.push(...(await fetchRemoteOk()));
+      } else if (src.type === "rss") {
+        all.push(...(await fetchRss(src.url, src.name)));
+      }
     } catch (e) {
-      console.error("Source failed:", src.name);
+      console.error("Source failed:", src.name, e?.message || e);
     }
   }
 
@@ -286,7 +297,7 @@ async function collectJobs() {
         all.push(...(await fetchAshby(s.slug, s.name)));
       }
     } catch (e) {
-      console.error("Startup source failed:", s.name);
+      console.error("Startup source failed:", s.name, e?.message || e);
     }
   }
 
@@ -345,9 +356,7 @@ function reportHtml(dateStr, results) {
     <h3 style="margin-top:22px;color:#111827;">${title} (${items.length})</h3>
     ${
       items.length
-        ? items
-            .map((j, i) => renderJobCard(j, i, options.includePitch, options.includeApplyLink))
-            .join("")
+        ? items.map((j, i) => renderJobCard(j, i, options.includePitch, options.includeApplyLink)).join("")
         : `<p style="color:#6b7280;">None.</p>`
     }
   `;
@@ -357,7 +366,7 @@ function reportHtml(dateStr, results) {
     <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;padding:20px;">
       <h2 style="margin:0;color:#111827;">Daily Job Bot Report — ${escapeHtml(dateStr)}</h2>
       <p style="color:#4b5563;margin:10px 0 0;line-height:1.6;">
-        Mode: Balanced (Software + Web3) • Auto-apply: Email only • CV attached when auto-applied
+        Profile: ${escapeHtml(PROFILE.label)} • Auto-apply: Email only • CV attached when auto-applied
       </p>
 
       <div style="margin-top:18px;padding:14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;">
@@ -384,18 +393,22 @@ function reportHtml(dateStr, results) {
         includeApplyLink: true
       })}
 
-      <hr style="border:none;border-top:1px solid #e5e7eb;margin:22px 0;" />
-      <p style="color:#6b7280;font-size:13px;line-height:1.7;margin:0;">
-        Portfolio:
-        <a href="https://olabits-landing-page.onrender.com" target="_blank" rel="noreferrer">
-          https://olabits-landing-page.onrender.com
-        </a>
-        <br/>
-        GitHub:
-        <a href="https://github.com/Olabits-Dev" target="_blank" rel="noreferrer">
-          https://github.com/Olabits-Dev
-        </a>
-      </p>
+      ${
+        PROFILE_KEY === "dev"
+          ? `<hr style="border:none;border-top:1px solid #e5e7eb;margin:22px 0;" />
+             <p style="color:#6b7280;font-size:13px;line-height:1.7;margin:0;">
+               Portfolio:
+               <a href="${escapeHtml(CANDIDATE.portfolio)}" target="_blank" rel="noreferrer">
+                 ${escapeHtml(CANDIDATE.portfolio)}
+               </a>
+               <br/>
+               GitHub:
+               <a href="${escapeHtml(CANDIDATE.github)}" target="_blank" rel="noreferrer">
+                 ${escapeHtml(CANDIDATE.github)}
+               </a>
+             </p>`
+          : ""
+      }
     </div>
   </div>
   `;
@@ -421,11 +434,6 @@ async function main() {
       ...j,
       matchWhy: explainMatch(j),
       pitch: buildPitch(j)
-    if (PROFILE_KEY === "precious_support") {
-  if (hay.includes("£") || hay.includes("gbp")) score += 2;
-  if (hay.includes("₦") || hay.includes("ngn")) score += 2;
-  if (hay.includes("customer") || hay.includes("support")) score += 2;
-}
     }));
 
   const results = { applied: [], needsClick: [], skipped: [] };
@@ -455,6 +463,7 @@ async function main() {
         results.applied.push(job);
         applyLog.push({
           date: new Date().toISOString(),
+          profile: PROFILE_KEY,
           status: "APPLIED_EMAIL",
           company: job.company,
           title: job.title,
@@ -465,6 +474,7 @@ async function main() {
         results.needsClick.push(job);
         applyLog.push({
           date: new Date().toISOString(),
+          profile: PROFILE_KEY,
           status: "FAILED_EMAIL_NEEDS_CLICK",
           company: job.company,
           title: job.title,
@@ -477,6 +487,7 @@ async function main() {
       results.needsClick.push(job);
       applyLog.push({
         date: new Date().toISOString(),
+        profile: PROFILE_KEY,
         status: "NEEDS_CLICK",
         company: job.company,
         title: job.title,
@@ -487,14 +498,14 @@ async function main() {
     seen.add(job.url);
   }
 
-  saveJson(SEEN_FILE, [...seen]);
-  saveJson(APPLY_LOG_FILE, applyLog);
+  saveJson(SEEN_FILE, [...seen].slice(-2500));
+  saveJson(APPLY_LOG_FILE, applyLog.slice(-2500));
 
   const html = reportHtml(dateStr, results);
 
   await sendDailyReport({
     to: REPORT_TO,
-    subject: `Daily Job Bot — ${dateStr} (Applied: ${results.applied.length}, Needs 1-click: ${results.needsClick.length})`,
+    subject: `Daily Job Bot — ${PROFILE.label} — ${dateStr} (Applied: ${results.applied.length}, Needs 1-click: ${results.needsClick.length})`,
     html
   });
 }
