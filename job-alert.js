@@ -413,6 +413,11 @@ async function main() {
       ...j,
       matchWhy: explainMatch(j),
       pitch: buildPitch(j)
+    if (PROFILE_KEY === "precious_support") {
+  if (hay.includes("£") || hay.includes("gbp")) score += 2;
+  if (hay.includes("₦") || hay.includes("ngn")) score += 2;
+  if (hay.includes("customer") || hay.includes("support")) score += 2;
+}
     }));
 
   const results = { applied: [], needsClick: [], skipped: [] };
